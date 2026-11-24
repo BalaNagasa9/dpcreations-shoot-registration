@@ -54,9 +54,9 @@ function Index() {
     const r = schema.safeParse(data);
     const errs: Record<string, string> = {};
     if (!r.success) for (const i of r.error.issues) errs[String(i.path[0])] ??= i.message;
-    if (!file) errs.receipt = "Upload your payment screenshot";
-    else if (file.size > 10 * 1024 * 1024) errs.receipt = "File must be under 10MB";
-    if (!agree) errs.agree = "Please accept the terms and conditions";
+    if (!file) errs["receipt"] = "Upload your payment screenshot";
+    else if (file.size > 10 * 1024 * 1024) errs["receipt"] = "File must be under 10MB";
+    if (!agree) errs["agree"] = "Please accept the terms and conditions";
     setErrors(errs);
     if (Object.keys(errs).length || !r.success || !file) return;
     setBusy(true);
