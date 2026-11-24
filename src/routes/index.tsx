@@ -61,7 +61,8 @@ function Index() {
     if (Object.keys(errs).length || !r.success || !file) return;
     setBusy(true);
     try {
-      const ext = file.name.split(".").pop() ?? "jpg";
+      const raw = (file.name.split(".").pop() ?? "").toLowerCase();
+      const ext = ["png", "jpg", "jpeg", "webp", "heic"].includes(raw) ? raw : "jpg";
       const path = `${crypto.randomUUID()}.${ext}`;
       const up = await supabase.storage.from("payment-receipts").upload(path, file, { contentType: file.type });
       if (up.error) throw up.error;
