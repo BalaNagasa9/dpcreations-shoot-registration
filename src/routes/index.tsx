@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import paymentQr from "@/assets/payment-qr.jpeg.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -116,11 +117,12 @@ function Index() {
               <p className="mt-1 text-sm text-muted-foreground">Scan the QR code below to pay</p>
               <div className="mx-auto mt-4 flex aspect-square w-56 items-center justify-center overflow-hidden rounded-lg bg-foreground p-2">
                 {qrOk ? (
-                  <img src="/images/payment-qr.png" alt="Payment QR Code" className="h-full w-full object-contain" onError={() => setQrOk(false)} />
+                  <img src={paymentQr.url} alt="Payment QR Code for Munipalli Balanagasai" className="h-full w-full object-contain" onError={() => setQrOk(false)} />
                 ) : (
                   <span className="text-sm text-background">Payment QR Code</span>
                 )}
               </div>
+              <p className="mt-3 text-sm font-medium text-foreground">Munipalli Balanagasai</p>
             </section>
 
             <section>
