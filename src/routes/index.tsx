@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import paymentQr from "@/assets/payment-qr.jpeg.asset.json";
+import { saveRegistrationPdf } from "@/lib/registration-pdf.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,6 +43,35 @@ const terms = [
 const field = "w-full rounded-md border border-input bg-background px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 const label = "mb-1.5 block text-sm font-medium";
 
+async function receiptAsJpeg(file: File): Promise<Blob> {
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw new Error("Please upload a JPG, PNG or WEBP payment screenshot.");
+  }
+
+  const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) {
+    bitmap.close();
+    throw new Error("We could not read that screenshot. Please try another image.");
+  }
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("We could not read that screenshot. Please try another image."))),
+      "image/jpeg",
+      0.92,
+    );
+  });
+}
+
 function Index() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
@@ -48,6 +79,8 @@ function Index() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [qrOk, setQrOk] = useState(true);
+  const [registrationId, setRegistrationId] = useState<string | null>(null);
+  const savePdf = useServerFn(saveRegistrationPdf);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -61,18 +94,38 @@ function Index() {
     setErrors(errs);
     if (Object.keys(errs).length || !r.success || !file) return;
     setBusy(true);
+    let savedId = registrationId;
     try {
-      const raw = (file.name.split(".").pop() ?? "").toLowerCase();
-      const ext = ["png", "jpg", "jpeg", "webp", "heic"].includes(raw) ? raw : "jpg";
-      const path = `${crypto.randomUUID()}.${ext}`;
-      const up = await supabase.storage.from("payment-receipts").upload(path, file, { contentType: file.type });
-      if (up.error) throw up.error;
-      const { alt_mobile, ...rest } = r.data;
-      const ins = await supabase.from("photoshoot_registrations").insert({ ...rest, alt_mobile: alt_mobile || null, receipt_path: path, agreed_terms: true });
-      if (ins.error) throw ins.error;
+      if (!savedId) {
+        const receipt = await receiptAsJpeg(file);
+        const newId = crypto.randomUUID();
+        const path = `${newId}.jpg`;
+        const up = await supabase.storage.from("payment-receipts").upload(path, receipt, { contentType: "image/jpeg" });
+        if (up.error) throw up.error;
+        const { alt_mobile, ...rest } = r.data;
+        const ins = await supabase.from("photoshoot_registrations").insert({
+          id: newId,
+          ...rest,
+          alt_mobile: alt_mobile || null,
+          receipt_path: path,
+          agreed_terms: true,
+        });
+        if (ins.error) throw ins.error;
+        savedId = newId;
+        setRegistrationId(savedId);
+      }
+
+      await savePdf({ data: { registrationId: savedId } });
       setDone(true);
-    } catch {
-      setErrors({ form: "Something went wrong. Please try again." });
+    } catch (error) {
+      console.error(error);
+      setErrors({
+        form: savedId
+          ? "Your registration is saved, but the Google Drive PDF was not. Please click Retry PDF Save."
+          : error instanceof Error && (error.message.startsWith("Please upload") || error.message.startsWith("We could not"))
+            ? error.message
+            : "Something went wrong. Please try again.",
+      });
     } finally {
       setBusy(false);
     }
@@ -97,6 +150,7 @@ function Index() {
           <div className="rounded-xl border border-border bg-card p-10 text-center">
             <h2 className="font-display text-3xl text-gold">Registration received!</h2>
             <p className="mt-3 text-muted-foreground">Thank you. We will contact you with your Sunday shoot date.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Your details and payment screenshot are saved together as a PDF in our Google Drive.</p>
           </div>
         ) : (
           <form onSubmit={onSubmit} noValidate className="space-y-8 rounded-xl border border-border bg-card p-6 sm:p-8">
@@ -146,7 +200,7 @@ function Index() {
 
             <Err k="form" />
             <button type="submit" disabled={busy} className="w-full rounded-md bg-gold py-3 text-lg font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60">
-              {busy ? "Sending..." : "Send"}
+              {busy ? "Saving..." : registrationId ? "Retry PDF Save" : "Send"}
             </button>
           </form>
         )}
