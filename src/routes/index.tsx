@@ -169,7 +169,7 @@ function Index() {
             <section className="rounded-lg border border-border bg-secondary p-6 text-center">
               <h2 className="font-display text-2xl">Payment</h2>
               <p className="mt-1 text-sm text-muted-foreground">Scan the QR code below to pay</p>
-              <div className="mx-auto mt-4 flex aspect-square w-56 items-center justify-center overflow-hidden rounded-lg bg-foreground p-2">
+              <div className="mx-auto mt-4 flex aspect-square w-56 items-center justify-center overflow-hidden rounded-lg bg-white p-2">
                 {qrOk ? (
                   <img src={paymentQr.url} alt="Payment QR Code for Munipalli Balanagasai" className="h-full w-full object-contain" onError={() => setQrOk(false)} />
                 ) : (
