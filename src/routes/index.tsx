@@ -4,7 +4,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import paymentQr from "@/assets/payment-qr.jpeg.asset.json";
-import { saveRegistrationPdf } from "@/lib/registration-pdf.functions";
+import { saveRegistrationPdf, uploadReceipt } from "@/lib/registration-pdf.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -81,6 +81,7 @@ function Index() {
   const [qrOk, setQrOk] = useState(true);
   const [registrationId, setRegistrationId] = useState<string | null>(null);
   const savePdf = useServerFn(saveRegistrationPdf);
+  const sendReceipt = useServerFn(uploadReceipt);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -98,10 +99,10 @@ function Index() {
     try {
       if (!savedId) {
         const receipt = await receiptAsJpeg(file);
-        const newId = crypto.randomUUID();
-        const path = `${newId}.jpg`;
-        const up = await supabase.storage.from("payment-receipts").upload(path, receipt, { contentType: "image/jpeg" });
-        if (up.error) throw up.error;
+        const buf = new Uint8Array(await receipt.arrayBuffer());
+        let bin = "";
+        for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+        const { id: newId, path } = await sendReceipt({ data: { image: btoa(bin) } });
         const { alt_mobile, ...rest } = r.data;
         const ins = await supabase.from("photoshoot_registrations").insert({
           id: newId,

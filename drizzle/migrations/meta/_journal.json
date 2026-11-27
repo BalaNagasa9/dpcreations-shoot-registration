@@ -15,6 +15,13 @@
       "when": 1795480890856,
       "tag": "0001_tighten_receipt_upload_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795778241766,
+      "tag": "0002_remove_public_receipt_upload",
+      "breakpoints": true
     }
   ]
 }

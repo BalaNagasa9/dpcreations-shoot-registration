@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Anyone can upload one new receipt image" ON storage.objects;
